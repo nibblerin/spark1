@@ -1,0 +1,42 @@
+services:
+  db:
+    image: pgvector/pgvector:pg18
+    container_name: pagila-db
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - ./pagila_data:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-net
+
+  spark:
+    image: jupyter/pyspark-notebook:latest
+    container_name: pagila-spark
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy   
+    ports:
+      - "8888:8888"                 
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+    networks:
+      - app-net
+    command: start-notebook.sh --notebook-dir=/home/jovyan/work
+    volumes:
+      - ./notebooks:/home/jovyan/work
+
+networks:
+  app-net:
